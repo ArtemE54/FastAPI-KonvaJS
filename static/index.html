@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: #0f0f0f;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            background: #2d2d2d;
+            border-radius: 12px;
+            margin: 12px 16px 8px 16px;
+            padding: 8px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: 1px solid #3e3e3e;
+            flex-shrink: 0;
+        }
+        .toolbar button, .toolbar select, .toolbar input {
+            background: #3c3c3c;
+            border: none;
+            color: #e0e0e0;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+        .toolbar button:hover {
+            background: #4f4f4f;
+            transform: scale(1.02);
+        }
+        .toolbar button.active {
+            background: #0078d7;
+            color: white;
+            box-shadow: 0 0 0 1px #fff3;
+        }
+        .toolbar button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .toolbar .divider {
+            width: 1px;
+            height: 28px;
+            background: #5a5a5a;
+            margin: 0 4px;
+        }
+        .toolbar .spacer {
+            flex: 1;
+        }
+        input[type="color"] {
+            width: 36px;
+            height: 32px;
+            padding: 2px;
+            background: #2d2d2d;
+            cursor: pointer;
+        }
+        input[type="number"] {
+            width: 70px;
+        }
+        .editor-wrapper {
+            display: flex;
+            gap: 16px;
+            margin: 0 16px 16px 16px;
+            flex: 1;
+            min-height: 0;
+        }
+        #container {
+            flex: 4;
+            background-color: #1e1e1e;
+            border-radius: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            border: 1px solid #3a3a3a;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        #history-panel {
+            flex: 1;
+            min-width: 260px;
+            background: #252525;
+            border-radius: 16px;
+            border: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .panel-header {
+            background: #1f1f1f;
+            padding: 12px 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #3e3e3e;
+            color: #dddddd;
+            font-size: 14px;
+        }
+        #history-list {
+            list-style: none;
+            margin: 0;
+            padding: 8px 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .history-item {
+            padding: 10px 16px;
+            margin: 2px 8px;
+            border-radius: 10px;
+            background: #2c2c2c;
+            cursor: pointer;
+            font-size: 12px;
+            color: #ccc;
+            transition: 0.1s;
+            border-left: 3px solid transparent;
+            font-family: monospace;
+        }
+        .history-item:hover {
+            background: #3a3a3a;
+            transform: translateX(2px);
+        }
+        .history-item.active {
+            background: #0078d7;
+            color: white;
+            border-left-color: #ffb74d;
+            font-weight: bold;
+        }
+        .history-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #222;
+        }
+        #text-overlay {
+            position: fixed;
+            z-index: 1000;
+            display: none;
+            pointer-events: none;
+        }
+        #text-input {
+            pointer-events: auto;
+            background: #2d2d2d;
+            border: 2px solid #0078d7;
+            color: white;
+            padding: 4px 8px;
+            font-family: monospace;
+            font-size: 16px;
+            border-radius: 8px;
+            outline: none;
+            width: 100%;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <button id="sButton">💾 Сохранить на сервер</button>
+    <button id="lButton">📂 Загрузить с сервера</button>
+    <button id="cButton">🗑 Очистить сцену</button>
+    <div class="divider"></div>
+
+    <button id="tool-pointer" class="active">👆 Указатель</button>
+    <button id="tool-rect">⬜ Прям.</button>
+    <button id="tool-square">🔳 Квадр.</button>
+    <button id="tool-circle">⚪ Круг</button>
+    <button id="tool-arc">🌙 Дуга</button>
+    <button id="tool-line">📏 Линия</button>
+    <button id="tool-port">🔴 Порт</button>
+    <button id="tool-text">🔤 Текст</button>
+    <div class="divider"></div>
+
+    <select id="font-family">
+        <option value="Arial">Arial</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Courier New">Courier New</option>
+    </select>
+    <input type="number" id="font-size" value="16" min="8" max="72" style="width:60px">
+    <div class="divider"></div>
+
+    <span style="color:#ccc">Радиус дуги:</span>
+    <input type="number" id="arc-radius" value="40" min="5" max="300" step="5" style="width:65px">
+    <span style="color:#ccc">Угол:</span>
+    <input type="number" id="arc-angle" value="90" min="1" max="360" step="1" style="width:65px">
+    <div class="divider"></div>
+
+    <span style="color:#ccc">Сетка:</span>
+    <button id="grid-dec">➖</button>
+    <span id="grid-size-display">20</span>
+    <button id="grid-inc">➕</button>
+    <div class="divider"></div>
+
+    <input type="color" id="bg-color" value="#1e1e1e">
+    <input type="color" id="grid-color" value="#444444">
+    <input type="color" id="color-picker" value="#88aaff">
+    <div class="spacer"></div>
+
+    <button id="undoBtn" disabled>↩️ Отмена</button>
+    <button id="redoBtn" disabled>↪️ Повтор</button>
+    <button id="svgBtn">📤 Экспорт SVG</button>
+    <button id="exportBtn">⬇ Экспорт JSON</button>
+    <button id="importBtn">⬆ Импорт JSON</button>
+    <input type="file" id="fileInput" accept=".json" style="display: none;" />
+</div>
+
+<div class="editor-wrapper">
+    <div id="container"></div>
+    <div id="history-panel">
+        <div class="panel-header">📜 История действий</div>
+        <ul id="history-list"></ul>
+    </div>
+</div>
+
+<div id="text-overlay">
+    <input type="text" id="text-input">
+</div>
+
+<script>
+    (function(){
+        const CONFIG = {
+            GRID: { DEFAULT_SIZE: 20, MIN: 5, MAX: 50, STEP: 5 },
+            ARC: { DEFAULT_RADIUS: 40, DEFAULT_ANGLE: 90, MIN_RADIUS: 5, MAX_RADIUS: 300, MIN_ANGLE: 1, MAX_ANGLE: 360 },
+            TEXT: { DEFAULT_FONT: 'Arial', DEFAULT_SIZE: 16, MIN_SIZE: 8, MAX_SIZE: 72 },
+            COLORS: { DEFAULT_STROKE: '#88aaff', DEFAULT_FILL: '#3a3a3a', TRANSFORMER_BORDER: '#007acc' },
+            STROKE: { DEFAULT_WIDTH: 2, PORT_WIDTH: 1 },
+            PORT: { RADIUS: 6 }
+        };
+        const TOOLS = {
+            POINTER: 'pointer', RECT: 'rect', SQUARE: 'square', CIRCLE: 'circle',
+            ARC: 'arc', LINE: 'line', PORT: 'port', TEXT: 'text'
+        };
+
+        let stage, layer, transformer;
+        let history = [];
+        let historyIndex = -1;
+        const MAX_HISTORY = 100;
+
+        let currentTool = TOOLS.POINTER;
+        let isDrawing = false;
+        let currentShape = null;
+        let startX = 0, startY = 0;
+        let pendingStagePos = { x: 0, y: 0 };
+
+        let GRID_SIZE = CONFIG.GRID.DEFAULT_SIZE;
+        const snap = (v) => Math.round(v / GRID_SIZE) * GRID_SIZE;
+
+        let currentFontFamily = CONFIG.TEXT.DEFAULT_FONT;
+        let currentFontSize = CONFIG.TEXT.DEFAULT_SIZE;
+        let isEditingText = false;
+        let currentTextNode = null;
+        const textOverlay = document.getElementById('text-overlay');
+        const textInput = document.getElementById('text-input');
+
+        const colorPicker = document.getElementById('color-picker');
+        const bgPicker = document.getElementById('bg-color');
+        const gridPicker = document.getElementById('grid-color');
+        const sizeDisplay = document.getElementById('grid-size-display');
+        const fontFamilySelect = document.getElementById('font-family');
+        const fontSizeInput = document.getElementById('font-size');
+        const arcRadiusInput = document.getElementById('arc-radius');
+        const arcAngleInput = document.getElementById('arc-angle');
+        const container = document.getElementById('container');
+
+        function applyCanvasStyles() {
+            container.style.backgroundColor = bgPicker.value;
+            container.style.backgroundImage = `linear-gradient(to right, ${gridPicker.value} 1px, transparent 1px), linear-gradient(to bottom, ${gridPicker.value} 1px, transparent 1px)`;
+            container.style.backgroundSize = `${GRID_SIZE}px ${GRID_SIZE}px`;
+            sizeDisplay.textContent = GRID_SIZE;
+        }
+
+        function generateId() {
+            return crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).substr(2, 8);
+        }
+
+        function saveState(description = '✏️ Действие') {
+            if (isEditingText) hideTextEditor(false);
+            const state = [];
+            layer.getChildren().forEach(node => {
+                if (node !== transformer) state.push(node.toObject());
+            });
+            if (historyIndex < history.length - 1) history = history.slice(0, historyIndex + 1);
+            history.push({ state, description, timestamp: Date.now() });
+            if (history.length > MAX_HISTORY) history.shift();
+            historyIndex = history.length - 1;
+            renderHistoryPanel();
+            updateUndoRedoButtons();
+        }
+
+        function loadState(index) {
+            if (index < 0 || index >= history.length) return;
+            if (isEditingText) hideTextEditor(false);
+            historyIndex = index;
+            layer.getChildren().filter(n => n !== transformer).forEach(n => n.destroy());
+            history[historyIndex].state.forEach(obj => {
+                let node;
+                const attrs = obj.attrs;
+                try {
+                    switch (obj.className) {
+                        case 'Rect': node = new Konva.Rect(attrs); break;
+                        case 'Circle': node = new Konva.Circle(attrs); break;
+                        case 'Line': node = new Konva.Line(attrs); break;
+                        case 'Arc': node = new Konva.Arc(attrs); break;
+                        case 'Text': node = new Konva.Text(attrs); break;
+                        default: return;
+                    }
+                    if (node) {
+                        layer.add(node);
+                        attachNodeEvents(node);
+                    }
+                } catch(e) { console.warn(e); }
+            });
+            transformer.nodes([]);
+            layer.batchDraw();
+            renderHistoryPanel();
+            updateUndoRedoButtons();
+            syncColorPickerWithSelection();
+        }
+
+        function undo() { if (historyIndex > 0) loadState(historyIndex - 1); }
+        function redo() { if (historyIndex < history.length - 1) loadState(historyIndex + 1); }
+        function updateUndoRedoButtons() {
+            document.getElementById('undoBtn').disabled = historyIndex <= 0;
+            document.getElementById('redoBtn').disabled = historyIndex >= history.length - 1;
+        }
+
+        function renderHistoryPanel() {
+            const historyList = document.getElementById('history-list');
+            if (!historyList) return;
+            historyList.innerHTML = '';
+            history.forEach((item, idx) => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                if (idx === historyIndex) li.classList.add('active');
+                else if (idx > historyIndex) li.classList.add('disabled');
+                const time = new Date(item.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                li.textContent = `${idx+1}. ${item.description} (${time})`;
+                li.dataset.index = idx;
+                li.onclick = () => { if (idx !== historyIndex && idx <= historyIndex) loadState(idx); };
+                historyList.appendChild(li);
+            });
+            const activeItem = historyList.querySelector('.active');
+            if (activeItem) activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function applyColorToSelected() {
+            const nodes = transformer.nodes();
+            if (nodes.length === 0) return;
+            const col = colorPicker.value;
+            nodes.forEach(node => {
+                node.stroke(col);
+                if (node.getClassName() === 'Text') {
+                    node.fill(col);
+                } else {
+                    if (node.fill && node.fill() !== 'none' && node.fill() !== 'transparent') {
+                        node.fill(col + '44');
+                    }
+                }
+            });
+            layer.batchDraw();
+            saveState('🎨 Изменение цвета');
+        }
+
+        function syncColorPickerWithSelection() {
+            const nodes = transformer.nodes();
+            if (nodes.length === 0) return;
+            const first = nodes[0];
+            colorPicker.value = first.stroke();
+        }
+
+        function syncFontPickerWithSelection() {
+            const nodes = transformer.nodes();
+            if (nodes.length === 1 && nodes[0].getClassName() === 'Text') {
+                const t = nodes[0];
+                fontFamilySelect.value = t.fontFamily();
+                fontSizeInput.value = t.fontSize();
+                currentFontFamily = t.fontFamily();
+                currentFontSize = t.fontSize();
+            }
+        }
+
+        function updateSelectedTextProps() {
+            const nodes = transformer.nodes();
+            let changed = false;
+            nodes.forEach(node => {
+                if (node.getClassName() === 'Text') {
+                    node.fontFamily(currentFontFamily);
+                    node.fontSize(currentFontSize);
+                    node.width(node.getTextWidth() + 4);
+                    changed = true;
+                }
+            });
+            if (changed) { layer.batchDraw(); saveState('🔤 Изменение текста'); }
+        }
+
+        function showTextEditor(clientX, clientY, initialValue = '', targetNode = null) {
+            if (isEditingText) hideTextEditor(false);
+            currentTextNode = targetNode;
+            isEditingText = true;
+            textInput.value = initialValue;
+            textOverlay.style.display = 'flex';
+            textOverlay.style.left = `${clientX}px`;
+            textOverlay.style.top = `${clientY}px`;
+            textOverlay.style.width = `${Math.max(initialValue.length * 10, 120)}px`;
+            textOverlay.style.height = '34px';
+            if (targetNode) {
+                textInput.style.fontSize = targetNode.fontSize() + 'px';
+                textInput.style.color = targetNode.fill();
+                textInput.style.fontFamily = targetNode.fontFamily();
+            } else {
+                textInput.style.fontSize = currentFontSize + 'px';
+                textInput.style.color = colorPicker.value;
+                textInput.style.fontFamily = currentFontFamily;
+            }
+            textInput.focus();
+            textInput.select();
+        }
+
+        function hideTextEditor(save = false) {
+            if (!isEditingText) return;
+            if (save && textInput.value.trim() !== '') {
+                const val = textInput.value.trim();
+                if (currentTextNode) {
+                    currentTextNode.text(val);
+                    currentTextNode.width(currentTextNode.getTextWidth() + 4);
+                } else {
+                    const newText = new Konva.Text({
+                        id: generateId(),
+                        x: pendingStagePos.x,
+                        y: pendingStagePos.y,
+                        text: val,
+                        fontSize: currentFontSize,
+                        fontFamily: currentFontFamily,
+                        fill: colorPicker.value,
+                        draggable: true,
+                        listening: true,
+                        name: 'ugo-text',
+                        align: 'left'
+                    });
+                    layer.add(newText);
+                    attachNodeEvents(newText);
+                    transformer.nodes([newText]);
+                }
+                layer.batchDraw();
+                saveState(save ? '🔤 Ввод текста' : '');
+            }
+            textOverlay.style.display = 'none';
+            isEditingText = false;
+            currentTextNode = null;
+        }
+
+        function attachNodeEvents(node) {
+            node.draggable(true);
+            if (node.getClassName() !== 'Text') {
+                node.dragBoundFunc(pos => ({ x: snap(pos.x), y: snap(pos.y) }));
+            }
+            node.on('click tap', (e) => {
+                e.cancelBubble = true;
+                transformer.nodes([node]);
+                layer.batchDraw();
+                syncColorPickerWithSelection();
+                syncFontPickerWithSelection();
+            });
+            node.on('dragend', () => saveState('🖱️ Перемещение'));
+            if (node.getClassName() === 'Text') {
+                node.on('dblclick dbltap', (e) => {
+                    e.cancelBubble = true;
+                    showTextEditor(e.evt.clientX, e.evt.clientY, node.text(), node);
+                });
+            }
+        }
+
+        function createShape(tool, x, y) {
+            const base = { id: generateId(), x, y, draggable: true, listening: true, name: 'ugo-element', stroke: colorPicker.value, strokeWidth: CONFIG.STROKE.DEFAULT_WIDTH };
+            switch (tool) {
+                case TOOLS.RECT:
+                    return new Konva.Rect({ ...base, width: GRID_SIZE, height: GRID_SIZE, fill: CONFIG.COLORS.DEFAULT_FILL });
+                case TOOLS.SQUARE:
+                    return new Konva.Rect({ ...base, width: GRID_SIZE, height: GRID_SIZE, fill: CONFIG.COLORS.DEFAULT_FILL });
+                case TOOLS.CIRCLE:
+                    return new Konva.Circle({ ...base, radius: GRID_SIZE/2, fill: CONFIG.COLORS.DEFAULT_FILL });
+                case TOOLS.ARC:
+                    const radius = parseInt(arcRadiusInput.value) || CONFIG.ARC.DEFAULT_RADIUS;
+                    const angle = parseInt(arcAngleInput.value) || CONFIG.ARC.DEFAULT_ANGLE;
+                    return new Konva.Arc({ ...base, innerRadius: 0, outerRadius: radius, angle: angle, fill: 'transparent' });
+                case TOOLS.LINE:
+                    return new Konva.Line({ ...base, points: [0, 0, GRID_SIZE, GRID_SIZE], lineCap: 'round', fill: 'none' });
+                case TOOLS.PORT:
+                    return new Konva.Circle({ ...base, radius: CONFIG.PORT.RADIUS, fill: colorPicker.value, name: 'port', strokeWidth: CONFIG.STROKE.PORT_WIDTH });
+                default: return null;
+            }
+        }
+
+        function updateShapeDuringDraw(tool, shape, dx, dy) {
+            if (!shape) return;
+            switch (tool) {
+                case TOOLS.LINE:
+                    shape.points([0, 0, dx, dy]);
+                    break;
+                case TOOLS.CIRCLE:
+                case TOOLS.PORT:
+                    shape.radius(Math.max(GRID_SIZE/2, Math.sqrt(dx*dx + dy*dy)));
+                    break;
+                case TOOLS.ARC:
+                    shape.outerRadius(Math.max(GRID_SIZE, Math.sqrt(dx*dx + dy*dy)));
+                    break;
+                case TOOLS.RECT:
+                case TOOLS.SQUARE:
+                    const w = Math.max(GRID_SIZE, Math.abs(dx));
+                    const h = (tool === TOOLS.SQUARE) ? w : Math.max(GRID_SIZE, Math.abs(dy));
+                    shape.width(w);
+                    shape.height(h);
+                    shape.x(dx >= 0 ? startX : startX - w);
+                    shape.y(dy >= 0 ? startY : startY - h);
+                    break;
+            }
+        }
+
+        function startDrawing(e) {
+            if (isEditingText || currentTool === TOOLS.POINTER) return;
+            if (currentTool === TOOLS.TEXT) {
+                const pos = stage.getPointerPosition();
+                pendingStagePos = { x: snap(pos.x), y: snap(pos.y) };
+                showTextEditor(e.evt.clientX, e.evt.clientY, '', null);
+                return;
+            }
+            isDrawing = true;
+            const pos = stage.getPointerPosition();
+            startX = snap(pos.x);
+            startY = snap(pos.y);
+            currentShape = createShape(currentTool, startX, startY);
+            if (currentShape) {
+                layer.add(currentShape);
+                attachNodeEvents(currentShape);
+                transformer.nodes([currentShape]);
+                layer.batchDraw();
+            }
+        }
+
+        function onMouseMove(e) {
+            if (!isDrawing || !currentShape) return;
+            const pos = stage.getPointerPosition();
+            const dx = snap(pos.x) - startX;
+            const dy = snap(pos.y) - startY;
+            updateShapeDuringDraw(currentTool, currentShape, dx, dy);
+            layer.batchDraw();
+        }
+
+        function stopDrawing() {
+            if (isDrawing && currentShape && currentTool !== TOOLS.TEXT) {
+                saveState(`➕ Создан: ${currentTool}`);
+            }
+            isDrawing = false;
+            currentShape = null;
+        }
+
+        function exportToSVG() {
+            if (isEditingText) hideTextEditor(false);
+            transformer.nodes([]);
+            layer.draw();
+            const nodes = layer.getChildren().filter(n => n !== transformer);
+            if (nodes.length === 0) { alert('Нет объектов для экспорта'); return; }
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            nodes.forEach(node => {
+                const box = node.getClientRect();
+                minX = Math.min(minX, box.x);
+                minY = Math.min(minY, box.y);
+                maxX = Math.max(maxX, box.x + box.width);
+                maxY = Math.max(maxY, box.y + box.height);
+            });
+            const padding = 10;
+            minX -= padding; minY -= padding; maxX += padding; maxY += padding;
+            const width = maxX - minX, height = maxY - minY;
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX} ${minY} ${width} ${height}">`;
+            svg += `<rect width="100%" height="100%" fill="none"/>`;
+            nodes.forEach(node => {
+                const a = node.attrs;
+                const x = a.x || 0, y = a.y || 0, rot = a.rotation || 0;
+                const transform = (x || y || rot) ? ` transform="translate(${x},${y}) rotate(${rot})"` : '';
+                const stroke = a.stroke || '#888', sw = a.strokeWidth || 2, fill = a.fill || 'none';
+                let el = '';
+                if (node.className === 'Rect') {
+                    el = `<rect x="0" y="0" width="${a.width}" height="${a.height}" stroke="${stroke}" stroke-width="${sw}" fill="${fill}"${transform}/>`;
+                } else if (node.className === 'Circle') {
+                    el = `<circle cx="0" cy="0" r="${a.radius}" stroke="${stroke}" stroke-width="${sw}" fill="${fill}"${transform}/>`;
+                } else if (node.className === 'Line' && a.points && a.points.length >= 4) {
+                    el = `<polyline points="${a.points.join(' ')}" stroke="${stroke}" stroke-width="${sw}" fill="none"${transform}/>`;
+                } else if (node.className === 'Arc' && a.outerRadius) {
+                    const r = a.outerRadius;
+                    const angle = a.angle || 90;
+                    const startAngle = 0;
+                    const endAngle = angle * Math.PI / 180;
+                    const x1 = Math.cos(startAngle) * r;
+                    const y1 = Math.sin(startAngle) * r;
+                    const x2 = Math.cos(endAngle) * r;
+                    const y2 = Math.sin(endAngle) * r;
+                    const largeArc = Math.abs(angle) > 180 ? 1 : 0;
+                    const sweep = angle >= 0 ? 1 : 0;
+                    el = `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} ${sweep} ${x2} ${y2}" stroke="${stroke}" stroke-width="${sw}" fill="none"${transform}/>`;
+                } else if (node.className === 'Text') {
+                    const safeText = (a.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const fontSize = a.fontSize || 16;
+                    const fontFamily = a.fontFamily || 'Arial';
+                    el = `<text x="0" y="0" font-family="${fontFamily}" font-size="${fontSize}" fill="${fill}" text-anchor="start" dominant-baseline="hanging"${transform}>${safeText}</text>`;
+                }
+                if (el) svg += el;
+            });
+            svg += '</svg>';
+            const blob = new Blob([svg], {type: 'image/svg+xml'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `drawing_${Date.now()}.svg`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            saveState('📤 Экспорт SVG');
+        }
+
+        function clearScene() {
+            if (confirm('Очистить сцену?')) {
+                layer.getChildren().filter(n => n !== transformer).forEach(n => n.destroy());
+                transformer.nodes([]);
+                layer.batchDraw();
+                saveState('🧹 Очистка');
+            }
+        }
+
+        function exportToJSON() {
+            const jsonData = stage.toJSON();
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'scene.json';
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function importFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const sceneData = JSON.parse(e.target.result);
+                    stage.destroy();
+                    const newStage = Konva.Node.create(sceneData, 'container');
+                    stage = newStage;
+                    layer = stage.getLayers()[0];
+                    transformer = layer.find('Transformer')[0];
+                    if (!transformer) {
+                        transformer = new Konva.Transformer({ rotateEnabled: true, borderStroke: CONFIG.COLORS.TRANSFORMER_BORDER, anchorSize: 8 });
+                        layer.add(transformer);
+                    }
+                    layer.getChildren().forEach(node => { if (node !== transformer) attachNodeEvents(node); });
+                    stage.on('click tap', (e) => { if (e.target === stage) transformer.nodes([]); });
+                    layer.batchDraw();
+                    saveState('📂 Импорт JSON');
+                    syncColorPickerWithSelection();
+                } catch(err) { alert('Ошибка импорта JSON'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function deleteSelected() {
+            if (isEditingText) return;
+            const nodes = transformer.nodes();
+            if (nodes.length === 0) return;
+            nodes.forEach(n => n.destroy());
+            transformer.nodes([]);
+            layer.batchDraw();
+            saveState('🗑 Удаление');
+        }
+
+        let clipboard = [];
+        function copySelected() {
+            const nodes = transformer.nodes();
+            if (nodes.length === 0) return;
+            clipboard = nodes.map(n => n.toObject());
+        }
+        function cutSelected() {
+            copySelected();
+            deleteSelected();
+        }
+        function pasteSelected() {
+            if (clipboard.length === 0) return;
+            transformer.nodes([]);
+            const pasted = [];
+            clipboard.forEach(data => {
+                let node;
+                const attrs = { ...data.attrs, id: generateId() };
+                attrs.x += 20, attrs.y += 20;
+                switch (data.className) {
+                    case 'Rect': node = new Konva.Rect(attrs); break;
+                    case 'Circle': node = new Konva.Circle(attrs); break;
+                    case 'Line': node = new Konva.Line(attrs); break;
+                    case 'Arc': node = new Konva.Arc(attrs); break;
+                    case 'Text': node = new Konva.Text(attrs); break;
+                    default: return;
+                }
+                if (node) {
+                    layer.add(node);
+                    attachNodeEvents(node);
+                    pasted.push(node);
+                }
+            });
+            if (pasted.length) {
+                transformer.nodes(pasted);
+                layer.batchDraw();
+                saveState('📋 Вставка');
+            }
+        }
+
+        function onTransform(e) {
+            const node = e.target;
+            if (node.getClassName() === 'Text') {
+                const sx = node.scaleX(), sy = node.scaleY();
+                if (sx !== 1 || sy !== 1) {
+                    const avgScale = (sx + sy) / 2;
+                    const newSize = Math.max(CONFIG.TEXT.MIN_SIZE, Math.round(node.fontSize() * avgScale));
+                    node.fontSize(newSize);
+                    node.scaleX(1); node.scaleY(1);
+                    fontSizeInput.value = newSize;
+                    currentFontSize = newSize;
+                    node.width(node.getTextWidth() + 4);
+                    transformer.forceUpdate();
+                }
+                return;
+            }
+            if (node._isSnapping) return;
+            node._isSnapping = true;
+            const sx = node.scaleX(), sy = node.scaleY();
+            if (sx !== 1 || sy !== 1) {
+                node.scaleX(1); node.scaleY(1);
+                if (node.width !== undefined) {
+                    node.width(Math.max(GRID_SIZE, snap(node.width() * sx)));
+                    node.height(Math.max(GRID_SIZE, snap(node.height() * sy)));
+                }
+                if (node.radius !== undefined) node.radius(Math.max(GRID_SIZE/2, snap(node.radius() * Math.max(sx, sy))));
+                if (node.points !== undefined) {
+                    const p = node.points();
+                    p[2] = snap(p[2]); p[3] = snap(p[3]);
+                    node.points(p);
+                }
+                node.x(snap(node.x())); node.y(snap(node.y()));
+                transformer.forceUpdate();
+            }
+            node._isSnapping = false;
+        }
+
+        function initStage() {
+            stage = new Konva.Stage({ container: 'container', width: container.clientWidth, height: container.clientHeight });
+            layer = new Konva.Layer();
+            stage.add(layer);
+            transformer = new Konva.Transformer({
+                rotateEnabled: true, keepRatio: false, borderStroke: CONFIG.COLORS.TRANSFORMER_BORDER,
+                anchorStroke: CONFIG.COLORS.TRANSFORMER_BORDER, anchorFill: '#fff', anchorSize: 8,
+                enabledAnchors: ['top-left','top-right','bottom-left','bottom-right','middle-left','middle-right','top-center','bottom-center']
+            });
+            layer.add(transformer);
+            transformer.on('transform', onTransform);
+            transformer.on('transformend', () => saveState('📐 Трансформация'));
+            layer.on('dragend', () => saveState('↔️ Перемещение'));
+
+            stage.on('click tap', (e) => { if (e.target === stage && currentTool === TOOLS.POINTER) transformer.nodes([]); });
+            stage.on('mousedown touchstart', (e) => {
+                if (e.target !== stage && !isEditingText) return;
+                startDrawing(e);
+            });
+            stage.on('mousemove touchmove', onMouseMove);
+            stage.on('mouseup touchend', stopDrawing);
+
+            window.addEventListener('resize', () => {
+                stage.width(container.clientWidth);
+                stage.height(container.clientHeight);
+                layer.batchDraw();
+            });
+
+            applyCanvasStyles();
+            saveState('🚀 Старт (пустая сцена)');
+        }
+
+        function setActiveTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.toolbar button[data-tool]').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`tool-${tool}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            stage.container().style.cursor = (tool === TOOLS.POINTER) ? 'default' : 'crosshair';
+        }
+
+        function updateGridSize(newSize) {
+            if (isEditingText) hideTextEditor(false);
+            GRID_SIZE = Math.max(CONFIG.GRID.MIN, Math.min(CONFIG.GRID.MAX, newSize));
+            layer.getChildren().forEach(node => {
+                if (node !== transformer && node.getClassName() !== 'Text') {
+                    node.x(snap(node.x()));
+                    node.y(snap(node.y()));
+                    if (node.width !== undefined) {
+                        node.width(snap(node.width()));
+                        node.height(snap(node.height()));
+                    }
+                    if (node.radius !== undefined) node.radius(snap(node.radius()));
+                }
+            });
+            layer.batchDraw();
+            applyCanvasStyles();
+            saveState('📏 Изменение сетки');
+        }
+
+        function bindUI() {
+            document.getElementById('sButton').onclick = async () => {
+                const json = stage.toJSON();
+                try {
+                    const res = await fetch('/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json });
+                    alert(res.ok ? 'Сохранено на сервер' : 'Ошибка');
+                } catch(e) { alert('Сервер недоступен'); }
+            };
+            document.getElementById('lButton').onclick = async () => {
+                try {
+                    const res = await fetch('/api/load');
+                    if (!res.ok) throw new Error();
+                    const data = await res.json();
+                    stage.destroy();
+                    const newStage = Konva.Node.create(data, 'container');
+                    stage = newStage; layer = stage.getLayers()[0];
+                    transformer = layer.find('Transformer')[0] || new Konva.Transformer({ rotateEnabled: true, borderStroke: CONFIG.COLORS.TRANSFORMER_BORDER });
+                    if (!layer.contains(transformer)) layer.add(transformer);
+                    layer.getChildren().forEach(n => { if (n !== transformer) attachNodeEvents(n); });
+                    stage.on('click tap', (e) => { if (e.target === stage) transformer.nodes([]); });
+                    layer.batchDraw();
+                    saveState('📡 Загрузка с сервера');
+                    syncColorPickerWithSelection();
+                } catch(e) { }
+            };
+            document.getElementById('cButton').onclick = clearScene;
+            document.getElementById('undoBtn').onclick = undo;
+            document.getElementById('redoBtn').onclick = redo;
+            document.getElementById('svgBtn').onclick = exportToSVG;
+            document.getElementById('exportBtn').onclick = exportToJSON;
+            document.getElementById('importBtn').onclick = () => document.getElementById('fileInput').click();
+            document.getElementById('fileInput').onchange = (e) => {
+                if (e.target.files.length) importFromFile(e.target.files[0]);
+                e.target.value = '';
+            };
+            colorPicker.addEventListener('input', applyColorToSelected);
+            bgPicker.addEventListener('input', applyCanvasStyles);
+            gridPicker.addEventListener('input', applyCanvasStyles);
+            document.getElementById('grid-inc').onclick = () => updateGridSize(GRID_SIZE + CONFIG.GRID.STEP);
+            document.getElementById('grid-dec').onclick = () => updateGridSize(GRID_SIZE - CONFIG.GRID.STEP);
+            fontFamilySelect.addEventListener('change', (e) => { currentFontFamily = e.target.value; updateSelectedTextProps(); });
+            fontSizeInput.addEventListener('input', (e) => { currentFontSize = parseInt(e.target.value) || CONFIG.TEXT.DEFAULT_SIZE; updateSelectedTextProps(); });
+            arcRadiusInput.addEventListener('change', () => {
+                const nodes = transformer.nodes();
+                if (nodes.length === 1 && nodes[0].getClassName() === 'Arc') {
+                    nodes[0].outerRadius(parseInt(arcRadiusInput.value));
+                    layer.batchDraw(); saveState('🌙 Изменение радиуса дуги');
+                }
+            });
+            arcAngleInput.addEventListener('change', () => {
+                const nodes = transformer.nodes();
+                if (nodes.length === 1 && nodes[0].getClassName() === 'Arc') {
+                    nodes[0].angle(parseInt(arcAngleInput.value));
+                    layer.batchDraw(); saveState('🌙 Изменение угла дуги');
+                }
+            });
+
+            document.getElementById('tool-pointer').onclick = () => setActiveTool(TOOLS.POINTER);
+            document.getElementById('tool-rect').onclick = () => setActiveTool(TOOLS.RECT);
+            document.getElementById('tool-square').onclick = () => setActiveTool(TOOLS.SQUARE);
+            document.getElementById('tool-circle').onclick = () => setActiveTool(TOOLS.CIRCLE);
+            document.getElementById('tool-arc').onclick = () => setActiveTool(TOOLS.ARC);
+            document.getElementById('tool-line').onclick = () => setActiveTool(TOOLS.LINE);
+            document.getElementById('tool-port').onclick = () => setActiveTool(TOOLS.PORT);
+            document.getElementById('tool-text').onclick = () => setActiveTool(TOOLS.TEXT);
+            document.getElementById('tool-pointer').classList.add('active');
+
+            window.addEventListener('keydown', (e) => {
+                if (isEditingText) {
+                    if (e.key === 'Enter') { e.preventDefault(); hideTextEditor(true); saveState('🔤 Ввод текста'); }
+                    if (e.key === 'Escape') { hideTextEditor(false); }
+                    return;
+                }
+                const isCtrl = e.ctrlKey || e.metaKey;
+                if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
+                if (isCtrl && e.key === 'z') { e.preventDefault(); undo(); }
+                if (isCtrl && e.key === 'y') { e.preventDefault(); redo(); }
+                if (isCtrl && e.key === 'c') { e.preventDefault(); copySelected(); }
+                if (isCtrl && e.key === 'v') { e.preventDefault(); pasteSelected(); layer.batchDraw(); }
+                if (isCtrl && e.key === 'x') { e.preventDefault(); cutSelected(); }
+                if (e.key.toLowerCase() === 'r' || e.key === 'к') {
+                    e.preventDefault();
+                    const nodes = transformer.nodes();
+                    if (nodes.length) {
+                        nodes.forEach(n => n.rotation((n.rotation() || 0) + 45));
+                        layer.batchDraw(); saveState('🔄 Вращение');
+                    }
+                }
+            });
+
+            textOverlay.addEventListener('mousedown', e => e.stopPropagation());
+            textInput.addEventListener('blur', () => { if (isEditingText) hideTextEditor(true); });
+            textInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); hideTextEditor(true); saveState('🔤 Ввод текста'); }
+                if (e.key === 'Escape') { hideTextEditor(false); }
+            });
+        }
+
+        initStage();
+        bindUI();
+    })();
+</script>
+</body>
+</html>
