@@ -1,0 +1,124 @@
+/* ✅ Добавлен универсальный селектор */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { 
+    font-family: system-ui, sans-serif; 
+    height: 100vh; display: flex; flex-direction: column; 
+    background: #1e1e1e; color: #e0e0e0; overflow: hidden;
+}
+
+.toolbar {
+    padding: 6px 10px; background: #2d2d2d; border-bottom: 1px solid #444;
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; user-select: none;
+}
+.toolbar button {
+    padding: 5px 8px; background: #3a3a3a; border: 1px solid #555;
+    color: #e0e0e0; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap;
+}
+.toolbar button:hover:not(:disabled) { background: #4a4a4a; }
+.toolbar button.active { background: #007acc; border-color: #005f9e; }
+.toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.divider { width: 1px; height: 22px; background: #555; margin: 0 3px; }
+.spacer { flex: 1; }
+.tool-group { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+#grid-size-display { min-width: 22px; text-align: center; font-weight: bold; color: #007acc; }
+
+#font-family-select, #font-size-input, #arc-radius, #arc-angle, #color-picker, #bg-color, #grid-color {
+    height: 26px; padding: 2px 4px; border: 1px solid #555;
+    border-radius: 4px; background: #3a3a3a; color: #e0e0e0; cursor: pointer; font-size: 12px;
+}
+#font-size-input, #arc-radius, #arc-angle { width: 50px; text-align: center; }
+
+#container {
+    flex: 1; position: relative; 
+    background-size: 20px 20px;
+    background-image: linear-gradient(to right, #444 1px, transparent 1px),
+                      linear-gradient(to bottom, #444 1px, transparent 1px);
+    cursor: crosshair;
+}
+.konvajs-content canvas { background: transparent !important; }
+
+#text-overlay {
+    display: flex; align-items: center; justify-content: center;
+}
+#text-input {
+    background: transparent; border: 1px dashed #007acc; color: #fff;
+    font-weight: bold; text-align: center; outline: none; padding: 2px 4px;
+    width: 100%; height: 100%; font-family: Arial, sans-serif;
+}
+#text-input:focus { border: 1px solid #007acc; background: rgba(0, 122, 204, 0.2); }
+
+/* Панель истории */
+#history-panel {
+    width: 250px;
+    background: #252526;
+    border-left: 1px solid #3c3c3c;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+}
+
+.panel-header {
+    padding: 8px 12px;
+    background: #1e1e1e;
+    font-weight: bold;
+    font-size: 12px;
+    border-bottom: 1px solid #3c3c3c;
+    color: #bbb;
+}
+
+#history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
+    max-height: 200px;
+}
+
+.history-item {
+    padding: 6px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-item:hover {
+    background: #2a2d2e;
+    color: #fff;
+}
+
+.history-item.active {
+    background: #007acc;
+    color: #fff;
+}
+
+.history-item.disabled {
+    color: #666;
+    cursor: default;
+}
+
+.history-item.disabled:hover {
+    background: #252526;
+    color: #666;
+}
+
+/* Обновленная структура редактора */
+.editor-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+#container {
+    flex: 1;
+    position: relative;
+    background-size: 20px 20px;
+    transition: background-size 0.2s;
+    overflow: hidden;
+}
