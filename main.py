@@ -7,7 +7,6 @@ from typing import Optional
 
 app = FastAPI()
 
-# === База данных ===
 DB_NAME = "database.db"
 
 def init_db():
@@ -72,7 +71,6 @@ async def load_scene(name: Optional[str] = None, version: Optional[int] = None):
         "data_json": json.loads(row["data_json"]), "svg": row["svg"] or ""
     }
 
-# === Ручная раздача файлов с правильным MIME ===
 @app.get("/")
 async def index():
     return FileResponse("static/index.html", media_type="text/html")

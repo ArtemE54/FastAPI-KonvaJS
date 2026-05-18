@@ -45,7 +45,6 @@ export function updateHistoryPanel() {
 }
 
 export function addHistoryItem(description) {
-    // эта функция вызывается из saveState, которая уже вызывает updateHistoryPanel
     updateHistoryPanel();
 }
 

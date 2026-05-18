@@ -13,7 +13,7 @@ import { exportToSVG } from './export.js';
 import { setupKeyboardEvents, setupToolbarEvents } from './event.js';
 import { snap } from './utils.js';
 
-// --- Глобальные переменные ---
+//Глобальные переменные
 let stage, layer, transformer, container;
 let GRID_SIZE = CONFIG.GRID.DEFAULT_SIZE;
 let isDrawing = false;
@@ -32,7 +32,7 @@ const arcAngleInput = document.getElementById('arc-angle');
 const textOverlay = document.getElementById('text-overlay');
 const textInput = document.getElementById('text-input');
 
-// --- Вспомогательные функции ---
+//Вспомогательные функции
 function attachNodeEvents(node) {
     if (!node) return;
     node.draggable(true);
@@ -134,7 +134,7 @@ function updateGridSize(newSize) {
     updateUndoRedoButtons();
 }
 
-// --- Рисование ---
+//Рисование
 function startDrawing(e) {
     if (isEditingText || currentTool === TOOLS.POINTER) return;
     if (currentTool === TOOLS.TEXT) {
@@ -179,7 +179,7 @@ function stopDrawing() {
     currentDrawingShape = null;
 }
 
-// --- Привязка UI ---
+//Привязка UI 
 function bindUI() {
     // История
     document.getElementById('undo-btn').addEventListener('click', () => {
@@ -268,7 +268,7 @@ function bindUI() {
     document.getElementById('delete-btn').addEventListener('click', deleteSelected);
 }
 
-// --- Инициализация ---
+// Инициализация
 function init() {
     container = document.getElementById('container');
     if (!container) {
@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bindUI();
 });
 
-// === Интеграция с сервером (SQLite) ===
+//Интеграция с сервером (SQLite)
 
 // Кнопки
 document.getElementById('save-server-btn').addEventListener('click', saveToServer);
@@ -353,9 +353,6 @@ async function saveToServer() {
             alert('Нет объектов для сохранения!');
             return;
         }
-        // ... (код генерации SVG, аналогичный export.js, но без Blob)
-        // Для простоты можно использовать метод из export.js с модификацией
-        // Но здесь мы вызовем специальную функцию
         svgString = generateSVGString(layer, transformer);
     } catch(e) {
         console.warn('Не удалось сгенерировать SVG, будет пустая строка');
@@ -383,7 +380,6 @@ async function saveToServer() {
     }
 }
 
-// Вспомогательная функция для генерации SVG строки (аналог exportToSVG, но возвращает строку)
 function generateSVGString(layer, transformer) {
     const nodes = layer.getChildren().filter(n => n !== transformer);
     if (nodes.length === 0) return '';
@@ -468,7 +464,7 @@ function showSceneSelection(scenes) {
     document.getElementById('server-panel-title').textContent = 'Выберите сцену для загрузки';
 }
 
-// Глобальная функция для загрузки конкретной сцены (вызывается из HTML onclick)
+// Глобальная функция для загрузки конкретной сцены
 window.loadSpecificScene = async function(name, version) {
     document.getElementById('server-panel').style.display = 'none';
     try {
@@ -512,7 +508,7 @@ window.loadSpecificScene = async function(name, version) {
             saveState(layer, transformer, '↔️ Перемещение', isEditingText, hideTextEditorWrapper);
             updateUndoRedoButtons();
         });
-        // Сбрасываем историю (загруженная сцена — новое состояние)
+        // Сбрасываем историю
         clearHistory();
         saveState(layer, transformer, `📂 Загружено: ${data.name} v${data.version}`, isEditingText, hideTextEditorWrapper);
         updateUndoRedoButtons();
